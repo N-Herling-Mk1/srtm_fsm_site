@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SRTM FSM</title>
+<meta name="description" content="Finite state machine for the SRTM boards, ATLAS DCS, University of Arizona ATLAS group.">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#000; --muted:#59616b; --rule:#dcdfe3; --paper:#fff; --accent:#e8230a; --tint:#fff1ed;
+  --display:"Orbitron","Eurostile","Arial Black",sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --mono:"Share Tech Mono","SFMono-Regular",Consolas,monospace;
+  --col:44rem;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1.0625rem/1.55 var(--body)}
+a{color:var(--ink);text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:3px}
+a:hover{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:var(--col);margin:0 auto;padding:0 1.25rem}
+header.wrap{padding-top:3.5rem;padding-bottom:1.5rem}
+.mark{display:flex;align-items:center;gap:1rem}
+.mark img{width:3.25rem;height:3.25rem}
+h1{font:900 clamp(2.6rem,8vw,4.4rem)/.95 var(--display);letter-spacing:.02em;margin:0}
+.lede{font-size:1.25rem;line-height:1.45;margin:1.25rem 0 .5rem;max-width:38rem}
+.meta{color:var(--muted);font-size:.95rem;margin:0}
+h2{font:900 1.35rem/1.2 var(--display);letter-spacing:.03em;margin:3.5rem 0 1rem;padding-top:1rem;border-top:3px solid var(--ink)}
+.sub{color:var(--muted);margin:-.5rem 0 1.25rem}
+
+/* chart — the one wide element */
+.chart{max-width:84rem;margin:0 auto;padding:0 1.25rem}
+.chart h2{max-width:var(--col);margin-left:auto;margin-right:auto}
+.chart .sub{max-width:var(--col);margin-left:auto;margin-right:auto}
+.scroller{overflow-x:auto;border:1px solid var(--rule);background:#fff}
+svg.flow{display:block;width:100%;min-width:62rem;height:auto}
+.lane{font:700 12px var(--display);letter-spacing:.06em;fill:var(--muted)}
+.lane-rule{stroke:var(--rule);stroke-width:1}
+.node rect.box{fill:#fff;stroke:var(--ink);stroke-width:1.5}
+.node.exists rect.box{stroke:var(--muted);stroke-dasharray:4 3}
+.node.assumed rect.box{stroke:var(--accent);stroke-dasharray:6 4}
+.node.tool rect.box{fill:#f6f7f8;stroke:var(--rule)}
+.node text.l{font:15px var(--mono);fill:var(--ink)}
+.node text.s{font:500 12px var(--body);fill:var(--muted)}
+.node text.i{font:13px var(--mono);fill:var(--ink)}
+.node text.k2{font:600 11px var(--body);fill:var(--muted);letter-spacing:.04em}
+.node text.b{font:12px var(--mono);fill:var(--muted);text-anchor:end}
+.node{cursor:pointer;transition:opacity .2s}
+.node:hover rect.box{stroke-width:2.5}
+.node.hit rect.box{stroke:var(--accent);stroke-width:2.5;fill:var(--tint);stroke-dasharray:none}
+.node.hit text.b{fill:var(--accent)}
+.node.sel rect.box{stroke:var(--accent);stroke-width:3.5}
+.flow.dim .node:not(.hit):not(.sel){opacity:.3}
+.flow.dim .edge{opacity:.25}
+.edge{fill:none;stroke-width:1.5;transition:opacity .2s}
+.edge.data{stroke:var(--ink)}
+.edge.cmd{stroke:var(--accent);stroke-width:2}
+.edge.cfg{stroke:var(--muted);stroke-dasharray:5 4}
+.legend{display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;font-size:.9rem;color:var(--muted);margin:.75rem 0 0;padding:0;list-style:none;max-width:var(--col);margin-inline:auto}
+.legend i{display:inline-block;width:2rem;height:0;border-top:2px solid var(--ink);vertical-align:middle;margin-right:.5rem}
+.legend .c i{border-color:var(--accent)} .legend .f i{border-top:2px dashed var(--muted)}
+.detail{max-width:var(--col);margin:1.25rem auto 0;min-height:10rem;border-left:4px solid var(--accent);padding:.25rem 0 .25rem 1.25rem}
+.detail h3{font:1.4rem var(--mono);margin:0 0 .25rem}
+.detail p{margin:.4rem 0}
+.detail .k{color:var(--muted);font-size:.9rem}
+.detail code{font-family:var(--mono);font-size:.95em}
+
+/* milestones: a real sequence */
+ol.milestones{list-style:none;padding:0;margin:0;border-top:1px solid var(--rule)}
+ol.milestones li{border-bottom:1px solid var(--rule)}
+.ms-links{display:flex;flex-wrap:wrap;gap:.35rem 1.25rem;padding:0 .25rem .9rem 5.75rem;font-size:.95rem}
+.ms-links.none{color:var(--muted)}
+@media (max-width:560px){.ms-links{padding-left:4.2rem}}
+button.ms{all:unset;box-sizing:border-box;display:grid;grid-template-columns:4.5rem 1fr;gap:1rem;width:100%;padding:1rem .25rem;cursor:pointer}
+button.ms:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+button.ms:hover .ms-title{color:var(--accent)}
+button.ms[aria-pressed="true"]{background:var(--tint);box-shadow:inset 4px 0 0 var(--accent)}
+.ms-id{font:900 1.9rem/1 var(--display);padding-left:.5rem}
+.ms-body{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .75rem}
+.ms-title{font-weight:600;font-size:1.1rem}
+.ms-status{font:.85rem var(--mono);color:var(--muted)}
+.ms-status.s-in-progress{color:#fff;background:var(--accent);padding:0 .4rem}
+.ms-demo{flex-basis:100%;color:var(--muted)}
+
+dl.asm{display:grid;grid-template-columns:8rem 1fr;gap:.6rem 1.25rem;margin:0}
+dl.asm dt{font-weight:600} dl.asm dd{margin:0}
+table{width:100%;border-collapse:collapse;font-size:1rem}
+td{padding:.55rem .5rem .55rem 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.mono{font-family:var(--mono)}
+ul.links{list-style:none;padding:0;margin:0}
+ul.links li{padding:.6rem 0;border-bottom:1px solid var(--rule);display:flex;flex-direction:column}
+ul.links li span{color:var(--muted);font-size:.95rem}
+ul.links li.archive a{color:var(--muted)}
+h3.minor{font:600 1rem var(--body);color:var(--muted);margin:1.5rem 0 .25rem}
+footer{margin:4rem auto 3rem;color:var(--muted);font-size:.9rem}
+@media (max-width:560px){dl.asm{grid-template-columns:1fr} dl.asm dd{margin-bottom:.6rem} button.ms{grid-template-columns:3.2rem 1fr}}
+
+.progress{margin:1.75rem 0 0}
+.progress ol{list-style:none;display:grid;grid-template-columns:repeat(8,1fr);gap:4px;padding:0;margin:0}
+.progress .seg{height:2.1rem;border:2px solid var(--rule);display:flex;align-items:center;justify-content:center;font:900 .8rem var(--display);color:var(--muted)}
+.progress .seg.s-done{background:var(--ink);border-color:var(--ink);color:#fff}
+.progress .seg.s-next{border-color:var(--accent);color:var(--accent)}
+.progress p{margin:.5rem 0 0;font-size:.95rem}
+.ms-status.s-done{color:#fff;background:var(--ink);padding:0 .4rem}
+.ms-status.s-next{color:var(--accent);border:1px solid var(--accent);padding:0 .35rem}
+ul.log{list-style:none;padding:0;margin:0;border-top:1px solid var(--rule)}
+ul.log li{display:grid;grid-template-columns:7.5rem 1fr;gap:1rem;padding:.7rem 0;border-bottom:1px solid var(--rule)}
+ul.log li span{color:var(--muted);font-size:.9rem;padding-top:.15rem}
+ul.log li p{margin:0}
+@media (max-width:560px){ul.log li{grid-template-columns:1fr;gap:.2rem}}
+.node.done rect.box{stroke-width:2.5;stroke:var(--ink)}
+.node.done text.b{fill:var(--ink);font-weight:700}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="mark"><img src="favicon.svg" alt=""><h1>SRTM FSM</h1></div>
+  <p class="lede">A JCOP finite state machine for the SRTM boards on the LAr signal processors: every board, its LASP and its IPMC reduced to one state, carried up the tree, with sends carried down.</p>
+  <p class="meta">University of Arizona ATLAS group, DCS prototype on WinCC OA with the CERN JCOP framework. A public summary: the code, tests and records are kept in a private repository. Updated 16 Oct 2026.</p>
+  <div class="progress" aria-label="Milestone progress">
+    <ol><li class='seg s-done' title='M1: One IPMC device changes colour (done)'><span>M1</span></li><li class='seg s-done' title='M2: A full board (done)'><span>M2</span></li><li class='seg s-done' title='M3: Sending (done)'><span>M3</span></li><li class='seg s-done' title='M4: Liveness (done)'><span>M4</span></li><li class='seg s-done' title='M5: The fleet, by script (done)'><span>M5</span></li><li class='seg s-done' title='M6: Scale (done)'><span>M6</span></li><li class='seg s-planned' title='M7: Alarms (planned)'><span>M7</span></li><li class='seg s-planned' title='M8: Panels (planned)'><span>M8</span></li></ol>
+    <p>6 of 8 milestones done. Next: M7, alarms.</p>
+  </div>
+</header>
+
+<section class="chart" aria-labelledby="h-flow">
+  <h2 id="h-flow">The planned software</h2>
+  <p class="sub">Select a box for what it is and where it lives, or a milestone below to see what it builds.</p>
+  <div class="scroller"><svg class="flow" id="flow" viewBox="0 0 1300 620" role="group" aria-label="Software flowchart"></svg></div>
+  <ul class="legend">
+    <li><i></i>State flows up</li><li class="c"><i></i>Commands flow down</li><li class="f"><i></i>Configuration</li>
+  </ul>
+  <div class="detail" id="detail" aria-live="polite"></div>
+</section>
+
+<main class="wrap">
+  <section aria-labelledby="h-ms">
+    <h2 id="h-ms">Milestones</h2>
+    <p class="sub">Each one ends in something that runs.</p>
+    <ol class="milestones">
+    <li><button class="ms" data-ms="M1" aria-pressed="false">
+      <span class="ms-id">M1</span>
+      <span class="ms-body"><span class="ms-title">One IPMC device changes colour</span>
+      <span class="ms-status s-done">done</span>
+      <span class="ms-demo">ipmc_m1_demo.ctl steps the node through OK, WARNING, ERROR, and ERROR on invalid data. Passed 25 Sep; checked by eye, automatic readback comes with M2.</span></span></button></li>
+
+    <li><button class="ms" data-ms="M2" aria-pressed="false">
+      <span class="ms-id">M2</span>
+      <span class="ms-body"><span class="ms-title">A full board</span>
+      <span class="ms-status s-done">done</span>
+      <span class="ms-demo">srtm_m2_test.ctl drives LASP, IPMC and the temperature bands through 16 steps and reads every node back: 16/16 PASS on 30 Sep against the real board, no weak steps.</span></span></button></li>
+
+    <li><button class="ms" data-ms="M3" aria-pressed="false">
+      <span class="ms-id">M3</span>
+      <span class="ms-body"><span class="ms-title">Sending</span>
+      <span class="ms-status s-done">done</span>
+      <span class="ms-demo">SEND goes SENDING then OK; a dropped ack times out to ERROR; in ERROR only RECOVER is offered. Shown on 5 Oct by hand in the operator panel and by srtm_m3_test.ctl, 16/16. Known defect: the top shows a false WARNING while a board sends out of ERROR.</span></span></button></li>
+
+    <li><button class="ms" data-ms="M4" aria-pressed="false">
+      <span class="ms-id">M4</span>
+      <span class="ms-body"><span class="ms-title">Liveness</span>
+      <span class="ms-status s-done">done</span>
+      <span class="ms-demo">Stop the evaluator: the board reaches ERROR within 10 s and recovers on restart. Shown on 6 Oct: srtm_m4_test.ctl 14/14, including a source going stale and the evaluator dying during a send; by hand the watchdog fired at 11 s.</span></span></button></li>
+
+    <li><button class="ms" data-ms="M5" aria-pressed="false">
+      <span class="ms-id">M5</span>
+      <span class="ms-body"><span class="ms-title">The fleet, by script</span>
+      <span class="ms-status s-done">done</span>
+      <span class="ms-demo">Build 8 boards in one call. Fault one: the group and top follow, the other seven stay green. Teardown leaves nothing behind.</span></span></button></li>
+
+    <li><button class="ms" data-ms="M6" aria-pressed="false">
+      <span class="ms-id">M6</span>
+      <span class="ms-body"><span class="ms-title">Scale</span>
+      <span class="ms-status s-done">done</span>
+      <span class="ms-demo">Result: 100 units on one server, 506 FSM nodes healthy, a board error at the top in 52 ms. The 101st is never connected: the OPC UA driver opens at most 100 servers. Rebuild and recovery fully from the terminal.</span></span></button></li>
+
+    <li><button class="ms" data-ms="M7" aria-pressed="false">
+      <span class="ms-id">M7</span>
+      <span class="ms-body"><span class="ms-title">Alarms</span>
+      <span class="ms-status s-planned">planned</span>
+      <span class="ms-demo">A value past its limit raises an alarm-screen entry regardless of FSM state.</span></span></button></li>
+
+    <li><button class="ms" data-ms="M8" aria-pressed="false">
+      <span class="ms-id">M8</span>
+      <span class="ms-body"><span class="ms-title">Panels</span>
+      <span class="ms-status s-planned">planned</span>
+      <span class="ms-demo">M2 to M5 replayed from panels alone, no scripts.</span></span></button></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="h-log">
+    <h2 id="h-log">Progress log</h2>
+    <ul class="log"><li><span class='mono'>16 Oct 2026</span><p>M6 done: ramp 8 -&gt; 128 -&gt; 8 boards. Valid at every size up to 100 (all fresh, all OK, propagation flat at 52 ms, 0 driver exits); at 128 only 100 servers connect, the OPC UA driver&#x27;s silent cap. FSM recovery after a rebuild is now terminal-only: FSM server restart, Stop All, restart, SMI bridge. M5 fleet test 11/11 afterwards.</p></li>
+<li><span class='mono'>12 Oct 2026</span><p>M6 started, goal reset: how many board + server units one machine can model. Ramp tooling written: any number of ghosts, removal of extra connections, scripted restart of all domains, per-step measurement into ramp.csv, a 40 GB free-memory floor.</p></li>
+<li><span class='mono'>9 Oct 2026</span><p>M5 done: SRTM_TOP sends to every board and shows SENDING (M3&#x27;s false WARNING gone). One SEND to the fleet top reaches all 8 boards. Tests: M3 16/16, fleet 11/11; M4 step 11 had a stale expectation, corrected. Off-screen window fix made a one-command tool.</p></li>
+<li><span class='mono'>9 Oct 2026</span><p>M5 step 2 done: fleet of 8 (real board + 7 ghosts) built by script; a ghost stopped for real turns only its board ERROR, 7/7. Lessons in M5/ISSUES.md: the device handler must be restarted whenever a domain&#x27;s device list changes; a stopped ghost is caught by staleness, not by the driver; SRTMRegs has 161 fields.</p></li>
+<li><span class='mono'>9 Oct 2026</span><p>M5 step 1 done: the fleet tree built, generated, started, torn down and rebuilt by script; 11/11 twice, no Stop All needed. Step 2 written: ghosts 02-07 with their OPC UA connections, fleet of 8, a test that stops a ghost for real.</p></li>
+<li><span class='mono'>9 Oct 2026</span><p>M5 started: the fleet tree is built, generated and started by script (recipe from the framework&#x27;s example_fwFsmTree.ctl), beside SRTM_TEST; step 1 is two boards, the real one and the existing ghost. Evaluator rewritten to loop over boards. Nothing run yet.</p></li>
+<li><span class='mono'>6 Oct 2026</span><p>M4 done: 14/14. Record keeping added: ENVIRONMENT.md (what lives on the WinCC server), RUNBOOK.md (cold start, restarts, symptoms), QUESTIONS.md, a one-screen status tool, dated test logs, and a commit stamp at the top of every run log.</p></li>
+<li><span class='mono'>6 Oct 2026</span><p>M4 shown on the WinCC server: a stale register source and a stopped evaluator both turn the board ERROR and recover by themselves; test 10/10 twice. Found: three of the four watched sensors report only on change, so source liveness rests on FPGA_temp.</p></li>
+<li><span class='mono'>6 Oct 2026</span><p>M3 closed: 16/16, known defect recorded (false WARNING at the top while a board sends out of ERROR). M4 started: staleness, heartbeat, watchdog and test written; nothing run yet.</p></li>
+<li><span class='mono'>5 Oct 2026</span><p>M3 built and shown on the WinCC server: SRTM_CMD device type, SENDING on the board, CMD_B1 in the tree; test 15/15 twice and the demo by hand. Found: a new device type needs Stop All before Start/Restart All, and a script can command the board without owning the tree.</p></li>
+<li><span class='mono'>2 Oct 2026</span><p>M3 started: command mailbox, evaluator command handling, simulator and 15-step test written; framework send and take-tree calls read from fwCU.ctl. Nothing run on the WinCC server yet.</p></li>
+<li><span class='mono'>30 Sep 2026</span><p>M2 done: 16-step readback test 16/16 against the real board, no weak steps. Configuration moved to config/srtm_cfg.txt; IPMC_TMP100_fb (reads 0 C) left out pending Prof. Cheu. Correction: the board has been live since 25 Sep; v4 has two connections, board and ghost.</p></li>
+<li><span class='mono'>28 Sep 2026</span><p>M2 started: evaluator design chosen, setup, evaluator and readback test written. The replay ghost is v4&#x27;s source (a local address is not a typo). M1 check 2 read from the export: SRTM_TOP&#x27;s ERROR order is wrong; fix is M2 step 1.</p></li>
+<li><span class='mono'>25 Sep 2026</span><p>Milestone records added: each milestone links its record and genealogy (commits, deviations, open checks). M1 record written.</p></li>
+<li><span class='mono'>25 Sep 2026</span><p>M1 passed on the WinCC server: IPMC_ERR device type and SRTM_TOP control unit built in the wizard, tree SRTM_TEST running, demo drives OK, WARNING, ERROR. Export fixed to capture values; how-to manual added.</p></li>
+<li><span class='mono'>25 Sep 2026</span><p>Repo created and wired into SRTM_Monitor_v4 as a proj_path layer; path check passes.</p></li>
+<li><span class='mono'>25 Sep 2026</span><p>Deck 1 mk2: addendum for IPMC error states, about 500 objects, and sending data; SEND and RECOVER rules.</p></li>
+<li><span class='mono'>24 Aug 2026</span><p>FSM toolchain verified on the WinCC server; Decks 1 to 3 written.</p></li></ul>
+  </section>
+
+  <section aria-labelledby="h-asm">
+    <h2 id="h-asm">Working assumptions</h2>
+    <p class="sub">Placeholders for facts we don't have yet. Each sits behind one boundary so the real thing can replace it.</p>
+    <dl class="asm"><dt>LASP</dt><dd>No separate state machine. 10 placeholder signals in their own device unit under each SRTM board.</dd>
+<dt>Write path</dt><dd>Exists but unspecified. All sends go through one srtm_send stub with an ack readback.</dd>
+<dt>Register data</dt><dd>The real board (datapoint SRTM, the board&#x27;s address). The replay ghost (SRTM_Ghost01, a local address) stays connected as a reserve and as the seed of the M5 fleet.</dd>
+<dt>IPMC</dt><dd>Up to 10 error types as a 10-bit mask with a severity table. valid=false means ERROR.</dd>
+<dt>Send rules</dt><dd>SEND from OK and WARNING, RECOVER from ERROR, nothing from SENDING (Deck 1, slide 15).</dd></dl>
+  </section>
+
+  <section aria-labelledby="h-del">
+    <h2 id="h-del">Deliverables</h2>
+    <table><tbody><tr><td class='mono'>D1</td><td>Deck 1, SRTM FSM design (mk2)</td><td>current</td></tr>
+<tr><td class='mono'>D2</td><td>Deck 2, FSM software</td><td>done</td></tr>
+<tr><td class='mono'>D3</td><td>Deck 3, the CERN reference panel reference</td><td>done</td></tr>
+<tr><td class='mono'>D4</td><td>SRTM FSM code, M1 to M8, each with a demo</td><td>M1 to M6 done; M7 next</td></tr>
+<tr><td class='mono'>D5</td><td>This page</td><td>done</td></tr>
+<tr><td class='mono'>D6</td><td>Knowledge base from the CERN docs</td><td>done, CERN PDFs to add</td></tr>
+<tr><td class='mono'>D7</td><td>How-to manual: reaching M1</td><td>done</td></tr>
+<tr><td class='mono'>D8</td><td>How-to manual: M2, a full board</td><td>done</td></tr></tbody></table>
+  </section>
+</main>
+<footer class="wrap">Generated from the private project by <span class="mono">tools/build_public.py</span>; internal details are removed before publishing.</footer>
+
+<script>
+const M = {"nodes": [{"done": false, "id": "live", "label": "SRTM board", "sub": "live, OPC UA", "x": 20, "y": 96, "w": 180, "h": 54, "ms": "exists", "file": "quasar OPC UA server on the board, the board's address", "what": "The one physical SRTM, live since at least 25 Sep 2026. Its quasar server publishes 161 read-only registers into the SRTM datapoint; M2's register device unit watches four of its temperatures.", "tool": false, "inside": []}, {"done": true, "id": "ghosts", "label": "Ghost servers", "sub": "replayed 24 h capture", "x": 20, "y": 176, "w": 180, "h": 54, "ms": "M5", "file": "srtm_ghost.py (tools/srtm_ghosts.sh)", "what": "OPC UA servers replaying the May 2026 capture. One, SRTM_Ghost01 on a local address, is connected to v4 as a reserve source; the fleet of seven lands with M5.", "tool": false, "inside": []}, {"done": true, "id": "eval", "label": "srtm_eval.ctl", "sub": "values + bands to sev", "x": 20, "y": 256, "w": 180, "h": 54, "ms": "M2", "file": "scripts/srtm/srtm_eval.ctl", "what": "Reads the watched temperatures and the 10 LASP signals once a second, compares them with the bands in SRTM_CFG_1, and writes a severity (0/1/2) that the device units turn into a state. Keeps every FSM type wizard-generated.", "tool": false, "inside": []}, {"done": true, "id": "sim", "label": "srtm_sim.ctl", "sub": "background life, acks", "x": 20, "y": 336, "w": 180, "h": 54, "ms": "M3", "file": "scripts/srtm/srtm_sim.ctl", "what": "The far end of the write path: acknowledges each send after a delay, or drops it on request so the timeout can be shown. Moving LASP signals and IPMC bits per board comes with the fleet in M5.", "tool": false, "inside": []}, {"done": false, "id": "wpath", "label": "Write path", "sub": "assumed, unspecified", "x": 20, "y": 416, "w": 180, "h": 54, "ms": "assumed", "file": "\u2014 not known", "what": "Whatever actually carries a send to the board: a new quasar design, firmware, or the IPMC. Everything upstream calls one stub, so the real path drops in without touching the FSM.", "tool": false, "inside": []}, {"done": false, "id": "regs", "label": "SRTMRegs", "sub": "161 fields, read-only", "x": 238, "y": 96, "w": 180, "h": 54, "ms": "exists", "file": "DP type in SRTM_Monitor_v4", "what": "The existing datapoint type mirroring the quasar design: one flat register bag, every field write-forbidden.", "tool": false, "inside": []}, {"done": true, "id": "lasp", "label": "LASP_SIG", "sub": "10 placeholder signals", "x": 238, "y": 176, "w": 180, "h": 54, "ms": "M2", "file": "scripts/srtm/srtm_mk_m2.ctl", "what": "Stand-in for what the LASP reports to its SRTM. Own type so SRTMRegs stays a clean quasar mirror; swapping in the real signal list changes one type and one DU.", "tool": false, "inside": []}, {"done": true, "id": "ipmcdp", "label": "IPMC_ERR", "sub": "mask:int, valid:bool", "x": 238, "y": 256, "w": 180, "h": 54, "ms": "M1", "file": "scripts/srtm/srtm_mk_types.ctl", "what": "Up to 10 IPMC error types as a 10-bit mask, plus a valid flag so that no data is never read as no errors.", "tool": false, "inside": []}, {"done": true, "id": "cmddp", "label": "SRTM_CMD", "sub": "request, state, seq, ack", "x": 238, "y": 336, "w": 180, "h": 54, "ms": "M3", "file": "scripts/srtm/srtm_mk_m3.ctl", "what": "The command mailbox: the request (SEND or RECOVER), the send state the evaluator owns, the sequence number sent and the one acknowledged.", "tool": false, "inside": []}, {"done": true, "id": "cfg", "label": "SRTM_CFG", "sub": "source, fields, bands", "x": 238, "y": 416, "w": 180, "h": 54, "ms": "M2", "file": "config/srtm_cfg.txt -> SRTM_CFG_1 (scripts/srtm/srtm_cfg.ctl)", "what": "Which SRTMRegs datapoint to watch, which temperature fields, and the four band limits each for temperatures and LASP signals. Edited live: the evaluator re-reads it every second.", "tool": false, "inside": []}, {"done": true, "id": "regsdu", "label": "REGS_SEV", "sub": "DU: 5 temperatures", "x": 456, "y": 96, "w": 180, "h": 54, "ms": "M2", "file": "fsm_types/M2_steps.md step 3", "what": "Device unit on REGS_B1. The evaluator compares FPGA_temp and four IPMC TMP100 sensors with the bands; the unit is OK, WARNING or ERROR from that severity and the valid flag.", "tool": false, "inside": []}, {"done": true, "id": "laspdu", "label": "LASP_SIG", "sub": "DU: 10 LASP signals", "x": 456, "y": 176, "w": 180, "h": 54, "ms": "M2", "file": "fsm_types/M2_steps.md step 4", "what": "Device unit on LASP_B1. No separate LASP state machine: the LASP is an input to its SRTM board. valid=false means ERROR.", "tool": false, "inside": []}, {"done": true, "id": "ipmcdu", "label": "IPMC_ERR", "sub": "DU type: mask to state", "x": 456, "y": 256, "w": 180, "h": 54, "ms": "M1", "file": "dplist/srtm_dps.dpl (fwOT_IPMC_ERR)", "what": "Built in the wizard from plain comparisons, no hand edits: OK if valid and mask is 0; WARNING if valid and mask is 1 to 31; everything else, including invalid data and unknown bits, falls through to ERROR. The DU type takes its datapoint type's name.", "tool": false, "inside": []}, {"done": true, "id": "cmddu", "label": "SRTM_CMD", "sub": "DU: the only writer", "x": 456, "y": 336, "w": 180, "h": 54, "ms": "M3", "file": "fsm_types/M3_steps.md step 3", "what": "Device unit on CMD_B1: OK, SENDING or ERROR from the send state. Its SEND and RECOVER actions only set a request; the evaluator validates it and calls srtm_send. Keeps the three monitoring DUs strictly read-only.", "tool": false, "inside": []}, {"done": false, "id": "alarms", "label": "Alarms", "sub": "beside the FSM, not in it", "x": 456, "y": 416, "w": 180, "h": 54, "ms": "M7", "file": "scripts/srtm/srtm_alarms.ctl", "what": "fwAlertConfig limits on registers and LASP signals, the same call sequence as the CERN reference panel. Runs independently of FSM state.", "tool": false, "inside": []}, {"done": true, "id": "board", "label": "SRTM_BOARD", "sub": "LU \u00d7 N", "x": 674, "y": 96, "w": 180, "h": 294, "ms": "M2", "file": "fsm_types/M2_steps.md step 5", "what": "One per board. OK / WARNING / ERROR by worst child; SENDING while CMD_DU is sending (M3). SEND from OK and WARNING, RECOVER from ERROR, nothing from SENDING.", "tool": false, "inside": ["States", "OK  WARNING  ERROR", "SENDING", "", "Commands", "SEND  from OK, WARNING", "RECOVER  from ERROR"]}, {"done": false, "id": "group", "label": "SRTM_GROUP", "sub": "CU, worst child", "x": 892, "y": 96, "w": 180, "h": 294, "ms": "M5", "file": "fsm_types/SRTM_TOP.when.txt", "what": "Partitionable group of boards. Grouping key (shelf, crate or channel map) still to be decided.", "tool": false, "inside": ["States", "OK  WARNING  ERROR", "", "Worst child wins", "", "Partitionable"]}, {"done": true, "id": "top", "label": "SRTM_TOP", "sub": "CU, worst child", "x": 1098, "y": 96, "w": 180, "h": 294, "ms": "M1", "file": "dplist/srtm_dps.dpl (fwOT_SRTM_TOP, fwTN_SRTM_TEST)", "what": "Root of the tree. In M1 it runs as the SMI domain SRTM_TEST with IPMC_B1 beneath it, and follows its worst child.", "tool": false, "inside": ["States", "OK  WARNING  ERROR", "", "Worst child wins", "", "Root of the tree"]}, {"done": true, "id": "export", "label": "srtm_export.sh", "sub": "DB content to dplist/", "x": 20, "y": 540, "w": 180, "h": 54, "ms": "M1", "file": "tools/srtm_export.sh", "what": "Dumps what we author inside the WinCC database (types, datapoints, FSM types, tree nodes) to files, so git sees it. Patterns must end in .* or only the names are exported. Run before every milestone commit.", "tool": true, "inside": []}, {"done": true, "id": "lib", "label": "srtmFsm.ctl", "sub": "logging, severity, srtm_send", "x": 238, "y": 540, "w": 180, "h": 54, "ms": "M1", "file": "scripts/libs/srtmFsm.ctl", "what": "Shared library. Holds the reference state rules and the one srtm_send stub every send goes through.", "tool": true, "inside": []}, {"done": true, "id": "live2", "label": "Liveness", "sub": "stale data means ERROR", "x": 456, "y": 540, "w": 180, "h": 54, "ms": "M4", "file": "scripts/srtm/srtm_eval.ctl, scripts/srtm/srtm_wd.ctl", "what": "A register source that stops updating, or an evaluator that stops running, turns the board ERROR instead of leaving it green. The watchdog and the evaluator watch each other's heartbeats.", "tool": true, "inside": []}, {"done": true, "id": "create", "label": "CREATE_SRTM_FSM", "sub": "(N): build + teardown", "x": 674, "y": 540, "w": 180, "h": 54, "ms": "M5", "file": "scripts/srtm/srtm_fleet_build.ctl, srtm_fleet_teardown.ctl", "what": "Array and loop, as in the CERN reference panel: another board is one array element. Scale test at N=250 (about 500 nodes) is M6.", "tool": true, "inside": []}, {"done": false, "id": "panels", "label": "Panels", "sub": "board view, test console", "x": 892, "y": 540, "w": 180, "h": 54, "ms": "M8", "file": "panels/", "what": "Operator view per board, plus a console to inject faults, drop acks and kill boards.", "tool": true, "inside": []}, {"done": true, "id": "tests", "label": "srtm_m2_test.ctl", "sub": "readback, PASS / FAIL", "x": 1098, "y": 540, "w": 180, "h": 54, "ms": "M2", "file": "scripts/srtm/srtm_m2_test.ctl .. srtm_m5_fleet_test.ctl", "what": "Drives the inputs, reads every node's state back with fwCU_getState / fwDU_getState, and prints PASS or FAIL per step. Flags any step that cannot fail (no transition) as WEAK. Replaces checking the panel by eye.", "tool": true, "inside": []}], "edges": [["live", "regs", "data"], ["ghosts", "regs", "data"], ["eval", "lasp", "data"], ["eval", "regsdu", "data"], ["sim", "cmddp", "data"], ["regs", "regsdu", "data"], ["lasp", "laspdu", "data"], ["ipmcdp", "ipmcdu", "data"], ["cmddp", "cmddu", "data"], ["regsdu", "board", "data"], ["laspdu", "board", "data"], ["ipmcdu", "board", "data"], ["cmddu", "board", "data"], ["board", "group", "data"], ["group", "top", "data"], ["cfg", "eval", "cfg"], ["cfg", "alarms", "cfg"], ["top", "group", "cmd"], ["group", "board", "cmd"], ["board", "cmddu", "cmd"], ["cmddu", "wpath", "cmd"], ["wpath", "live", "cmd"]], "milestones": [{"id": "M1", "title": "One IPMC device changes colour", "status": "done", "build": "IPMC_ERR type, IPMC_DU, SRTM_TOP as a one-node test root.", "demo": "ipmc_m1_demo.ctl steps the node through OK, WARNING, ERROR, and ERROR on invalid data. Passed 25 Sep; checked by eye, automatic readback comes with M2.", "nodes": ["ipmcdp", "ipmcdu", "top", "lib", "export"]}, {"id": "M2", "title": "A full board", "status": "done", "build": "REGS and LASP device units, SRTM_BOARD logical unit, the band config, the evaluator, the readback test.", "demo": "srtm_m2_test.ctl drives LASP, IPMC and the temperature bands through 16 steps and reads every node back: 16/16 PASS on 30 Sep against the real board, no weak steps.", "nodes": ["lasp", "cfg", "eval", "regsdu", "laspdu", "board", "tests", "ghosts"]}, {"id": "M3", "title": "Sending", "status": "done", "build": "SRTM_CMD mailbox and device unit, SEND and RECOVER on the board, the simulator and its acks.", "demo": "SEND goes SENDING then OK; a dropped ack times out to ERROR; in ERROR only RECOVER is offered. Shown on 5 Oct by hand in the operator panel and by srtm_m3_test.ctl, 16/16. Known defect: the top shows a false WARNING while a board sends out of ERROR.", "nodes": ["cmddp", "cmddu", "wpath", "sim"]}, {"id": "M4", "title": "Liveness", "status": "done", "build": "Staleness of the register source in the evaluator, a heartbeat, and a watchdog on the evaluator.", "demo": "Stop the evaluator: the board reaches ERROR within 10 s and recovers on restart. Shown on 6 Oct: srtm_m4_test.ctl 14/14, including a source going stale and the evaluator dying during a send; by hand the watchdog fired at 11 s.", "nodes": ["live2"]}, {"id": "M5", "title": "The fleet, by script", "status": "done", "build": "CREATE_SRTM_FSM(N) and its teardown; SRTM_GROUP; the ghost fleet.", "demo": "Build 8 boards in one call. Fault one: the group and top follow, the other seven stay green. Teardown leaves nothing behind.", "nodes": ["create", "group", "ghosts"]}, {"id": "M6", "title": "Scale", "status": "done", "build": "Ramp the fleet of board + server units (ghost, OPC UA connection, datapoint, FSM board) until the first limit.", "demo": "Result: 100 units on one server, 506 FSM nodes healthy, a board error at the top in 52 ms. The 101st is never connected: the OPC UA driver opens at most 100 servers. Rebuild and recovery fully from the terminal.", "nodes": ["create"]}, {"id": "M7", "title": "Alarms", "status": "planned", "build": "fwAlertConfig limits beside the FSM.", "demo": "A value past its limit raises an alarm-screen entry regardless of FSM state.", "nodes": ["alarms"]}, {"id": "M8", "title": "Panels", "status": "planned", "build": "SRTM_BOARD.pnl and the test console.", "demo": "M2 to M5 replayed from panels alone, no scripts.", "nodes": ["panels"]}]};
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("flow");
+const detail = document.getElementById("detail");
+const byId = Object.fromEntries(M.nodes.map(n => [n.id, n]));
+const el = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; };
+
+// arrowheads
+const defs = el("defs", {});
+[["data","#000"],["cmd","#e8230a"],["cfg","#59616b"]].forEach(([k,c]) => {
+  const m = el("marker", {id:"a-"+k, viewBox:"0 0 10 10", refX:9, refY:5, markerWidth:7, markerHeight:7, orient:"auto-start-reverse"}, defs);
+  el("path", {d:"M0 0L10 5L0 10z", fill:c}, m);
+});
+
+// lanes
+const lanes = ["Sources","Datapoints","Device units","Board","Group","Top"];
+const colX = [...new Set(M.nodes.filter(n=>!n.tool).map(n=>n.x))].sort((a,b)=>a-b);
+lanes.forEach((t,i) => el("text", {x:colX[i], y:62, class:"lane"}).textContent = t);
+el("line", {x1:20, x2:1280, y1:510, y2:510, class:"lane-rule"});
+el("text", {x:1280, y:500, class:"lane", "text-anchor":"end"}).textContent = "Tooling";
+
+// edges
+const R = n => n.x + n.w, cy = n => n.y + n.h / 2;
+function route(a, b, kind) {
+  const A = byId[a], B = byId[b];
+  if (a === "eval" && b === "regsdu") return `M${R(A)} ${cy(A)+10}H222V243H437V${cy(B)+10}H${B.x}`;
+  if (a === "cfg" && b === "eval") return `M${A.x} ${cy(A)}H212V${A.y - 30}H212V${B.y + B.h - 10}H${R(B)}`;
+  const big = n => ["board","group","top"].includes(n.id);
+  if (kind === "cmd") {
+    if (a === "top" || a === "group") { const y = A.y + 190; return `M${A.x} ${y}H${R(B)}`; }
+    if (a === "board") { const y = cy(B) + 12; return `M${A.x} ${y}H${R(B)}`; }
+    if (a === "cmddu") { return `M${A.x} ${cy(A)+14}H430V492H${B.x + B.w/2}V${B.y + B.h}`; }
+    if (a === "wpath") { return `M${A.x} ${cy(A)}H8V${cy(B)+10}H${B.x}`; }
+  }
+  if (big(A) && big(B)) { const y = A.y + 120; return `M${R(A)} ${y}H${B.x}`; }
+  if (big(B)) return `M${R(A)} ${cy(A)}H${B.x}`;
+  let y2 = cy(B), mx = (R(A) + B.x) / 2;
+  if (kind === "cfg") { mx = B.x - 12; if (b !== "alarms") y2 = cy(B) + 14; }
+  if (a === "ghosts") y2 = cy(B) + 12;
+  if (a === "sim" && b === "cmddp") y2 = cy(B) - 12;
+  if (Math.abs(cy(A) - y2) < 1) return `M${R(A)} ${y2}H${B.x}`;
+  return `M${R(A)} ${cy(A)}H${mx}V${y2}H${B.x}`;
+}
+const edgeEls = M.edges.map(([a,b,k]) => {
+  const p = el("path", {d:route(a,b,k), class:"edge "+k, "marker-end":`url(#a-${k})`});
+  p.dataset.a = a; p.dataset.b = b; return p;
+});
+
+// nodes
+const badge = ms => ms === "exists" ? "exists" : ms === "assumed" ? "assumed" : ms;
+const nodeEls = {};
+M.nodes.forEach(n => {
+  const g = el("g", {class:`node ${n.done?"done":""} ${n.ms==="exists"?"exists":""} ${n.ms==="assumed"?"assumed":""} ${n.tool?"tool":""}`,
+    tabindex:0, role:"button", "aria-label":`${n.label}, ${n.sub}, ${badge(n.ms)}`});
+  el("rect", {class:"box", x:n.x, y:n.y, width:n.w, height:n.h, rx:2}, g);
+  const tall = n.h > 100, ty = tall ? n.y + 30 : n.y + 28;
+  el("text", {class:"l", x:n.x+12, y:ty}, g).textContent = n.label;
+  el("text", {class:"s", x:n.x+12, y:ty+17}, g).textContent = n.sub;
+  (n.inside||[]).forEach((line,i) => { if (line) el("text", {class: /^(States|Commands)$/.test(line) ? "k2" : "i", x:n.x+12, y:n.y+86+i*20}, g).textContent = line; });
+  el("text", {class:"b", x:n.x+n.w-8, y:tall ? n.y+n.h-10 : n.y+13}, g).textContent = n.done ? badge(n.ms) + " \u2713 built" : badge(n.ms);
+  g.addEventListener("click", () => selectNode(n.id));
+  g.addEventListener("keydown", e => { if (e.key==="Enter"||e.key===" ") { e.preventDefault(); selectNode(n.id); } });
+  nodeEls[n.id] = g;
+});
+
+const msById = Object.fromEntries(M.milestones.map(m => [m.id, m]));
+const esc = s => s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function clear() {
+  Object.values(nodeEls).forEach(g => g.classList.remove("hit","sel"));
+  svg.classList.remove("dim");
+  document.querySelectorAll("button.ms").forEach(b => b.setAttribute("aria-pressed","false"));
+}
+function selectNode(id) {
+  clear(); const n = byId[id]; nodeEls[id].classList.add("sel");
+  const ins = M.edges.filter(e=>e[1]===id).map(e=>byId[e[0]].label), outs = M.edges.filter(e=>e[0]===id).map(e=>byId[e[1]].label);
+  const ms = msById[n.ms];
+  detail.innerHTML = `<h3>${esc(n.label)}</h3><p class="k">${esc(n.sub)}</p><p>${esc(n.what)}</p>
+    <p><span class="k">Where</span> <code>${esc(n.file)}</code></p>
+    <p><span class="k">Built in</span> ${ms ? `${ms.id}, ${esc(ms.title.toLowerCase())}` : esc(n.ms)}${n.done ? " (built and running)" : ""}</p>
+    ${ins.length ? `<p><span class="k">From</span> ${ins.map(esc).join(", ")}</p>` : ""}
+    ${outs.length ? `<p><span class="k">To</span> ${outs.map(esc).join(", ")}</p>` : ""}`;
+}
+function selectMs(id, focusChart) {
+  clear(); const m = msById[id];
+  svg.classList.add("dim"); m.nodes.forEach(n => nodeEls[n].classList.add("hit"));
+  document.querySelector(`button.ms[data-ms="${id}"]`).setAttribute("aria-pressed","true");
+  detail.innerHTML = `<h3>${m.id}: ${esc(m.title)}</h3><p class="k">${esc(m.status)}</p>
+    <p><span class="k">Builds</span> ${esc(m.build)}</p><p><span class="k">Demo</span> ${esc(m.demo)}</p>`;
+  if (focusChart) document.getElementById("h-flow").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+}
+document.querySelectorAll("button.ms").forEach(b => b.addEventListener("click", () => selectMs(b.dataset.ms, true)));
+selectMs((M.milestones.find(m => m.status === "in progress") || M.milestones.find(m => m.status === "next") || M.milestones[0]).id, false);
+</script>
+</body>
+</html>

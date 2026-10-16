@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>SRTM FSM</title>
+  <!-- chamfered black tile -->
+  <path d="M10 0H54L64 10V54L54 64H10L0 54V10Z" fill="#000"/>
+  <!-- connectors: root -> bus -> two children -->
+  <path d="M32 23V31M15 31H49M15 31V39M49 31V39" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="square"/>
+  <!-- root CU in Ares red-orange -->
+  <rect x="21" y="9" width="22" height="14" fill="#E8230A"/>
+  <!-- child nodes -->
+  <rect x="6"  y="39" width="18" height="14" fill="#fff"/>
+  <rect x="40" y="39" width="18" height="14" fill="#fff"/>
+  <!-- state tick on right child: the one that propagated -->
+  <rect x="40" y="39" width="18" height="4" fill="#E8230A"/>
+</svg>
